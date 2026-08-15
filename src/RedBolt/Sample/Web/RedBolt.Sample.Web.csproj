@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+  <ItemGroup>
+    <ProjectReference Include="../../Particles/RedBolt.Particles.csproj" />
+    <ProjectReference Include="$(RedBoltRoot)/src/RedBolt/DearImGui/RedBolt.DearImGui.csproj" />
+    <Compile Include="../Particles/**/*.cs" Link="Samples/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+  <Import Project="$(RedBoltRoot)/src/RedBolt/Build/WebSample.targets" />
+</Project>

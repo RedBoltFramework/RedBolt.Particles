@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <RedBoltParticlesRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory).'))</RedBoltParticlesRoot>
+    <RedBoltRoot Condition="'$(RedBoltRoot)' == ''">$([System.IO.Path]::GetFullPath('$(RedBoltParticlesRoot)/../RedBolt'))</RedBoltRoot>
+    <RedBoltExternalModuleRoot>$(RedBoltParticlesRoot)</RedBoltExternalModuleRoot>
+    <RedBoltExternalModuleName>RedBolt.Particles</RedBoltExternalModuleName>
+  </PropertyGroup>
+  <Import Project="$(RedBoltRoot)/src/RedBolt/Build/Directory.Solution.props" />
+</Project>

@@ -1,0 +1,19 @@
+<Project>
+  <PropertyGroup>
+    <RedBoltParticlesRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))</RedBoltParticlesRoot>
+    <RedBoltRoot Condition="'$(RedBoltRoot)' == ''">$([System.IO.Path]::GetFullPath('$(RedBoltParticlesRoot)/../RedBolt'))</RedBoltRoot>
+    <RedBoltDearImGuiEnabled>true</RedBoltDearImGuiEnabled>
+    <RedBoltExternalModuleRoot>$(RedBoltParticlesRoot)</RedBoltExternalModuleRoot>
+    <RedBoltExternalModuleName>RedBolt.Particles</RedBoltExternalModuleName>
+    <RedBoltExternalBuildProjectName>RedBolt.Particles.Build</RedBoltExternalBuildProjectName>
+    <RedBoltExternalModuleProjectNames>RedBolt.Particles</RedBoltExternalModuleProjectNames>
+    <RedBoltExternalHasNative>false</RedBoltExternalHasNative>
+    <RedBoltExternalUsesDearImGui>true</RedBoltExternalUsesDearImGui>
+    <RedBoltExternalDesktopResourceRoot>$(RedBoltRoot)</RedBoltExternalDesktopResourceRoot>
+  </PropertyGroup>
+  <Import Project="$(RedBoltRoot)/src/RedBolt/Build/Directory.Build.props" />
+  <PropertyGroup>
+    <RedBoltExternalModuleEnabled>$(RedBoltParticlesEnabled)</RedBoltExternalModuleEnabled>
+    <RedBoltExternalModuleBuildProperties>RedBoltParticlesEnabled=$(RedBoltParticlesEnabled)</RedBoltExternalModuleBuildProperties>
+  </PropertyGroup>
+</Project>
