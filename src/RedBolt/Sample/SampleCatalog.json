@@ -1,0 +1,13 @@
+{
+  "name": "RedBolt.Particles",
+  "applicationId": "org.redbolt.particles.samples",
+  "web": true,
+  "android": true,
+  "projectReferences": [
+    "src/RedBolt/Particles/RedBolt.Particles.csproj",
+    "../RedBolt/src/RedBolt/DearImGui/RedBolt.DearImGui.csproj"
+  ],
+  "samples": [
+    { "id": "particles", "name": "Particles", "applicationType": "RedBolt.Sample.Particles.ParticlesApplication", "source": "Particles" }
+  ]
+}
