@@ -181,7 +181,7 @@ public class ParticleGraphReader : IDisposable
     {
         _particleGraph = particleGraph;
         _graph = graph;
-        _system = particleGraph.GetSubsystem<ParticleGraphSystem>();
+        _system = ParticleGraphSystem.GetOrCreate(particleGraph.Context);
         graph.GetNodeIds(_ids);
     }
 
@@ -219,7 +219,13 @@ public class ParticleGraphReader : IDisposable
         }
         _nodes[id] = ParticleGraph.InvalidNodeIndex;
 
-        var srcNode = _graph.GetNode(id)!;
+        var srcNode = _graph.GetNode(id);
+        if (srcNode is null)
+        {
+            Log.GetLogger().LogError("Particle graph node {NodeId} does not exist", id);
+            return ParticleGraph.InvalidNodeIndex;
+        }
+
         var newNode = _system.CreateObject(srcNode.GetNameHash());
         if (newNode is null)
         {

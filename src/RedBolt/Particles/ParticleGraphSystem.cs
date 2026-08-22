@@ -16,8 +16,13 @@ using RedBolt.Core;
 public class ParticleGraphSystem : RedObject
 {
     public ParticleGraphSystem()
+        : this(Context.Instance)
     {
-        RegisterParticleGraphLibrary(Context, this);
+    }
+
+    private ParticleGraphSystem(Context context)
+    {
+        RegisterParticleGraphLibrary(context, this);
     }
 
     public override void Dispose()
@@ -37,6 +42,25 @@ public class ParticleGraphSystem : RedObject
     }
 
     /// <summary>
+    /// Return the registered particle graph system or register a default system.
+    /// </summary>
+    public static ParticleGraphSystem GetOrCreate(Context context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        lock (SystemLock)
+        {
+            var system = context.GetSubsystem<ParticleGraphSystem>();
+            if (system is not null)
+                return system;
+
+            system = new ParticleGraphSystem(context);
+            context.RegisterSubsystem(system);
+            return system;
+        }
+    }
+
+    /// <summary>
     /// Register Particle Graph library objects.
     /// </summary>
     public static void RegisterParticleGraphLibrary(Context context, ParticleGraphSystem system)
@@ -46,4 +70,5 @@ public class ParticleGraphSystem : RedObject
     }
 
     private readonly Dictionary<StringHash, Func<ParticleGraphNode>> _factories = [];
+    private static readonly object SystemLock = new();
 }
