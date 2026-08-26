@@ -101,7 +101,17 @@ sealed class ParticlesApplication : Application
 
         var fire = Resources.Get<ParticleEffect>("Particle/Fire.xml");
         var smoke = Resources.Get<ParticleEffect>("Particle/SmokeStack.xml");
-        var burst = Resources.Get<ParticleEffect>("Particle/Burst.xml");
+        ParticleEffect[] presets =
+        [
+            Resources.Get<ParticleEffect>("Particle/Kenney/fire_01.xml"),
+            Resources.Get<ParticleEffect>("Particle/Kenney/flame_02.xml"),
+            Resources.Get<ParticleEffect>("Particle/Kenney/magic_01.xml"),
+            Resources.Get<ParticleEffect>("Particle/Kenney/muzzle_01.xml"),
+            Resources.Get<ParticleEffect>("Particle/Kenney/smoke_01.xml"),
+            Resources.Get<ParticleEffect>("Particle/Kenney/spark_01.xml"),
+            Resources.Get<ParticleEffect>("Particle/Kenney/star_01.xml"),
+            Resources.Get<ParticleEffect>("Particle/Kenney/trace_01.xml")
+        ];
         var disco = Resources.Get<ParticleEffect>("Particle/Disco.xml");
 
         CreateEmitter(_scene, "Fire", new Vector3f(0.0f, 1.0f, 0.0f), 5.0f, fire);
@@ -112,12 +122,12 @@ sealed class ParticlesApplication : Application
         graphEmitterNode.SetPosition(new Vector3f(0.0f, 5.0f, 0.0f));
         graphEmitterNode.CreateComponent<ParticleGraphEmitter>().SetEffect(_graphEffect);
 
-        _burstRing = _scene.CreateChild("BurstRing");
-        for (var i = 0; i < 8; ++i)
+        _burstRing = _scene.CreateChild("PresetRing");
+        for (var i = 0; i < presets.Length; ++i)
         {
             var angle = i * 45.0f;
             var position = new Vector3f(MathDefs.Sin(angle) * 6.0f, 4.0f, MathDefs.Cos(angle) * 6.0f);
-            CreateEmitter(_burstRing, "Burst", position, 1.5f, burst);
+            CreateEmitter(_burstRing, "KenneyPreset", position, 1.5f, presets[i]);
         }
 
         _discoRing = _scene.CreateChild("DiscoRing");
