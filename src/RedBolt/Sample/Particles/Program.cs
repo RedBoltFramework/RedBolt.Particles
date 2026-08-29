@@ -39,10 +39,12 @@ sealed class ParticlesApplication : Application
 {
     private Scene? _scene;
     private Node? _cameraNode;
-    private Node? _burstRing;
-    private Node? _discoRing;
+    private Light? _fireLight;
     private ParticleGraphEffect? _graphEffect;
     private Viewport? _viewport;
+    private Texture2D[]? _controlPrompts;
+    private float _elapsedTime;
+    private static readonly Vector2f PromptIconSize = new(24.0f, 24.0f);
 
     protected override void Setup(EngineParameters parameters)
     {
@@ -67,6 +69,15 @@ sealed class ParticlesApplication : Application
         SubscribeToEvent<DearImGuiEvents.EndRenderingDearImGuiEvent>(
             (ref DearImGuiEvents.EndRenderingDearImGuiEvent _) => DrawInstructions());
 
+        _controlPrompts =
+        [
+            Resources.Get<Texture2D>("ThirdParty/KenneyInputPrompts/keyboard_w.png"),
+            Resources.Get<Texture2D>("ThirdParty/KenneyInputPrompts/keyboard_a.png"),
+            Resources.Get<Texture2D>("ThirdParty/KenneyInputPrompts/keyboard_s.png"),
+            Resources.Get<Texture2D>("ThirdParty/KenneyInputPrompts/keyboard_d.png"),
+            Resources.Get<Texture2D>("ThirdParty/KenneyInputPrompts/mouse_right.png")
+        ];
+
         CreateScene();
         SetupViewport();
 
@@ -81,83 +92,149 @@ sealed class ParticlesApplication : Application
 
         var zone = _scene.CreateChild("Zone").CreateComponent<Zone>();
         zone.SetBoundingBox(new BoundingBox(-100.0f, 100.0f));
-        zone.SetAmbientColor(new Color(0.015f, 0.02f, 0.06f));
-        zone.SetFogColor(new Color(0.005f, 0.01f, 0.03f));
-        zone.SetFogStart(35.0f);
-        zone.SetFogEnd(70.0f);
+        zone.SetAmbientColor(new Color(0.055f, 0.065f, 0.11f));
+        zone.SetFogColor(new Color(0.008f, 0.014f, 0.035f));
+        zone.SetFogStart(22.0f);
+        zone.SetFogEnd(48.0f);
 
         var floorNode = _scene.CreateChild("Floor");
         floorNode.SetScale(new Vector3f(60.0f, 1.0f, 60.0f));
         var floor = floorNode.CreateComponent<StaticModel>();
         floor.SetModel(Resources.Get<Model>("Models/Plane.mdl"));
-        floor.SetMaterial(Resources.Get<Material>("Materials/StoneTiled.xml"));
+        var floorMaterial = Resources.Get<Material>(
+            "ThirdParty/KenneyNature/grass.glb.d/Materials/grass_Lit.xml").Clone("MoonlitGrass");
+        floorMaterial.SetShaderParameter("MatDiffColor", new Vector4f(0.035f, 0.085f, 0.065f, 1.0f));
+        floor.SetMaterial(floorMaterial);
+        floor.SetCastShadows(false);
 
-        var pedestalNode = _scene.CreateChild("Pedestal");
-        pedestalNode.SetPosition(new Vector3f(0.0f, 0.5f, 0.0f));
-        pedestalNode.SetScale(new Vector3f(4.0f, 1.0f, 4.0f));
-        var pedestal = pedestalNode.CreateComponent<StaticModel>();
-        pedestal.SetModel(Resources.Get<Model>("Models/Box.mdl"));
-        pedestal.SetMaterial(Resources.Get<Material>("Materials/Stone.xml"));
+        // A ring of irregular stones and real log meshes gives the effect a recognizable, intimate setting.
+        var fireplace = _scene.CreateChild("Fireplace");
+        fireplace.SetPosition(new Vector3f(0.0f, 0.0f, 1.2f));
+        CreateStoneRing(fireplace);
+        CreateLogStack(fireplace);
 
-        var fire = Resources.Get<ParticleEffect>("Particle/Fire.xml");
-        var smoke = Resources.Get<ParticleEffect>("Particle/SmokeStack.xml");
-        ParticleEffect[] presets =
-        [
-            Resources.Get<ParticleEffect>("Particle/Kenney/fire_01.xml"),
-            Resources.Get<ParticleEffect>("Particle/Kenney/flame_02.xml"),
-            Resources.Get<ParticleEffect>("Particle/Kenney/magic_01.xml"),
-            Resources.Get<ParticleEffect>("Particle/Kenney/muzzle_01.xml"),
-            Resources.Get<ParticleEffect>("Particle/Kenney/smoke_01.xml"),
-            Resources.Get<ParticleEffect>("Particle/Kenney/spark_01.xml"),
-            Resources.Get<ParticleEffect>("Particle/Kenney/star_01.xml"),
-            Resources.Get<ParticleEffect>("Particle/Kenney/trace_01.xml")
-        ];
-        var disco = Resources.Get<ParticleEffect>("Particle/Disco.xml");
+        _graphEffect = CreateCoalBedEffect();
+        var coalBed = fireplace.CreateChild("GraphCoalBed");
+        coalBed.SetPosition(new Vector3f(0.0f, 0.46f, 0.0f));
+        coalBed.CreateComponent<ParticleGraphEmitter>().SetEffect(_graphEffect);
 
-        CreateEmitter(_scene, "Fire", new Vector3f(0.0f, 1.0f, 0.0f), 5.0f, fire);
-        CreateEmitter(_scene, "Smoke", new Vector3f(0.0f, 1.0f, 0.0f), 2.5f, smoke);
+        CreateEmitter(fireplace, "AnimatedFlames", new Vector3f(0.0f, 0.54f, 0.0f), 1.0f,
+            Resources.Get<ParticleEffect>("Particle/FireplaceFire.xml"));
+        CreateEmitter(fireplace, "DriftingSmoke", new Vector3f(0.0f, 0.78f, 0.0f), 1.0f,
+            Resources.Get<ParticleEffect>("Particle/FireplaceSmoke.xml"));
+        CreateEmitter(fireplace, "RisingEmbers", new Vector3f(0.0f, 0.62f, 0.0f), 1.0f,
+            Resources.Get<ParticleEffect>("Particle/FireplaceEmbers.xml"));
 
-        _graphEffect = CreateGraphEffect();
-        var graphEmitterNode = _scene.CreateChild("ParticleGraphRing");
-        graphEmitterNode.SetPosition(new Vector3f(0.0f, 5.0f, 0.0f));
-        graphEmitterNode.CreateComponent<ParticleGraphEmitter>().SetEffect(_graphEffect);
-
-        _burstRing = _scene.CreateChild("PresetRing");
-        for (var i = 0; i < presets.Length; ++i)
-        {
-            var angle = i * 45.0f;
-            var position = new Vector3f(MathDefs.Sin(angle) * 6.0f, 4.0f, MathDefs.Cos(angle) * 6.0f);
-            CreateEmitter(_burstRing, "KenneyPreset", position, 1.5f, presets[i]);
-        }
-
-        _discoRing = _scene.CreateChild("DiscoRing");
-        for (var i = 0; i < 6; ++i)
-        {
-            var angle = i * 60.0f + 30.0f;
-            var position = new Vector3f(MathDefs.Sin(angle) * 4.0f, 8.0f, MathDefs.Cos(angle) * 4.0f);
-            CreateEmitter(_discoRing, "Disco", position, 2.5f, disco);
-        }
-
-        for (var i = 0; i < 4; ++i)
-        {
-            var angle = i * 90.0f + 45.0f;
-            var lightNode = _scene.CreateChild("PointLight");
-            lightNode.SetPosition(new Vector3f(MathDefs.Sin(angle) * 5.0f, 3.0f, MathDefs.Cos(angle) * 5.0f));
-            var light = lightNode.CreateComponent<Light>();
-            light.SetLightType(LightType.Point);
-            light.SetRange(14.0f);
-            light.SetBrightness(2.5f);
-            light.SetColor(i % 2 == 0
-                ? new Color(1.0f, 0.12f, 0.04f)
-                : new Color(0.05f, 0.3f, 1.0f));
-        }
+        _fireLight = CreatePointLight(_scene, "FireLight", new Vector3f(0.0f, 1.65f, 1.2f), 15.0f, 3.4f,
+            new Color(1.0f, 0.43f, 0.10f), true);
+        CreateMoonlight();
+        CreateMoon();
+        CreateForestSilhouette();
 
         _cameraNode = _scene.CreateChild("Camera");
         _cameraNode.CreateComponent<FreeFlyController>();
         var camera = _cameraNode.CreateComponent<Camera>();
-        camera.SetFarClip(100.0f);
-        _cameraNode.SetPosition(new Vector3f(0.0f, 8.0f, -23.0f));
-        _cameraNode.LookAt(new Vector3f(0.0f, 4.0f, 0.0f));
+        camera.SetFarClip(60.0f);
+        _cameraNode.SetPosition(new Vector3f(3.8f, 2.45f, -4.9f));
+        _cameraNode.LookAt(new Vector3f(0.0f, 1.25f, 1.25f));
+    }
+
+    private void CreateStoneRing(Node fireplace)
+    {
+        var model = Resources.Get<Model>(
+            "ThirdParty/KenneyNature/rock_smallA.glb.d/Models/Mesh rock_smallA.mdl");
+        Material[] materials =
+        [
+            Resources.Get<Material>(
+                "ThirdParty/KenneyNature/rock_smallA.glb.d/Materials/grass_Lit.xml"),
+            Resources.Get<Material>(
+                "ThirdParty/KenneyNature/rock_smallA.glb.d/Materials/dirt_Lit.xml")
+        ];
+        const int numStones = 13;
+        for (var i = 0; i < numStones; ++i)
+        {
+            var angle = i * 360.0f / numStones;
+            var radius = 1.16f + 0.06f * MathDefs.Sin(angle * 3.0f);
+            var stone = CreateModel(fireplace, $"HearthStone{i}",
+                new Vector3f(MathDefs.Sin(angle) * radius, 0.12f, MathDefs.Cos(angle) * radius),
+                0.72f + 0.08f * (i % 3), model, materials);
+            stone.SetRotation(new Quaternion(5.0f * (i % 2), angle + 18.0f, 3.0f * (i % 3 - 1)));
+        }
+    }
+
+    private void CreateLogStack(Node fireplace)
+    {
+        var model = Resources.Get<Model>("ThirdParty/KenneyNature/log.glb.d/Models/Mesh log.mdl");
+        Material[] materials =
+        [
+            Resources.Get<Material>("ThirdParty/KenneyNature/log.glb.d/Materials/woodBark_Lit.xml"),
+            Resources.Get<Material>("ThirdParty/KenneyNature/log.glb.d/Materials/woodInner_Lit.xml")
+        ];
+        var first = CreateModel(fireplace, "LogLowerA", new Vector3f(0.0f, 0.30f, 0.0f), 1.2f,
+            model, materials);
+        first.SetRotation(new Quaternion(0.0f, 48.0f, 0.0f));
+        var second = CreateModel(fireplace, "LogLowerB", new Vector3f(0.0f, 0.34f, 0.0f), 1.2f,
+            model, materials);
+        second.SetRotation(new Quaternion(0.0f, 132.0f, 0.0f));
+    }
+
+    private void CreateMoonlight()
+    {
+        var node = _scene!.CreateChild("Moonlight");
+        node.SetDirection(new Vector3f(0.35f, -0.8f, 0.45f));
+        var light = node.CreateComponent<Light>();
+        light.SetLightType(LightType.Directional);
+        light.SetBrightness(0.52f);
+        light.SetColor(new Color(0.28f, 0.40f, 0.72f));
+        light.SetCastShadows(true);
+        light.SetShadowBias(new BiasParameters(0.0004f, 0.75f));
+    }
+
+    private void CreateMoon()
+    {
+        var material = Resources.Get<Material>("Materials/Constant/UnlitWhite.xml").Clone("MoonGlow");
+        material.SetShaderParameter("MatDiffColor", new Vector4f(0.72f, 0.82f, 1.0f, 1.0f));
+        CreateModel(_scene!, "Moon", new Vector3f(-4.5f, 7.5f, 11.0f), 0.72f,
+            Resources.Get<Model>("Models/Sphere.mdl"), [material]);
+    }
+
+    private void CreateForestSilhouette()
+    {
+        var model = Resources.Get<Model>(
+            "ThirdParty/KenneyNature/tree_fat.glb.d/Models/Mesh tree_fat.mdl");
+        Material[] materials =
+        [
+            Resources.Get<Material>(
+                "ThirdParty/KenneyNature/tree_fat.glb.d/Materials/leafsGreen_Lit.xml"),
+            Resources.Get<Material>(
+                "ThirdParty/KenneyNature/tree_fat.glb.d/Materials/woodBark_Lit.xml")
+        ];
+        Vector3f[] positions =
+        [
+            new(-11.0f, 0.0f, 10.0f), new(-7.0f, 0.0f, 16.0f), new(8.5f, 0.0f, 14.0f),
+            new(13.0f, 0.0f, 8.0f), new(-14.0f, 0.0f, 2.0f), new(15.0f, 0.0f, 0.0f)
+        ];
+        for (var i = 0; i < positions.Length; ++i)
+        {
+            var tree = CreateModel(_scene!, $"DistantTree{i}", positions[i], 2.6f + 0.3f * (i % 3),
+                model, materials);
+            tree.SetRotation(new Quaternion(0.0f, i * 47.0f, 0.0f));
+        }
+    }
+
+    private static Light CreatePointLight(Scene scene, string name, in Vector3f position, float range,
+        float brightness, in Color color, bool castShadows)
+    {
+        var node = scene.CreateChild(name);
+        node.SetPosition(position);
+        var light = node.CreateComponent<Light>();
+        light.SetLightType(LightType.Point);
+        light.SetRange(range);
+        light.SetBrightness(brightness);
+        light.SetColor(color);
+        light.SetCastShadows(castShadows);
+        light.SetShadowBias(new BiasParameters(0.0005f, 1.0f));
+        return light;
     }
 
     private static void CreateEmitter(
@@ -169,52 +246,44 @@ sealed class ParticlesApplication : Application
         node.CreateComponent<ParticleEmitter>().SetEffect(effect);
     }
 
-    private static ParticleGraphEffect CreateGraphEffect()
+    private static ParticleGraphEffect CreateCoalBedEffect()
     {
-        const int numParticles = 12;
+        const int numCoals = 18;
         var effect = new ParticleGraphEffect();
-        effect.SetNumLayers(numParticles);
-        for (var i = 0; i < numParticles; ++i)
+        effect.SetNumLayers(numCoals);
+        for (var i = 0; i < numCoals; ++i)
         {
             var layer = effect.GetLayer(i);
             layer.Capacity = 1;
 
-            var emitCount = AddConstant(layer.EmitGraph, 1.0f);
             var emit = new Emit();
-            emit.SetPinSource(0, emitCount);
+            emit.SetPinSource(0, AddConstant(layer.EmitGraph, 1.0f));
             layer.EmitGraph.Add(emit);
 
-            var angle = 360.0f * i / numParticles;
-            var position = new Vector3f(MathDefs.Sin(angle) * 3.4f, MathDefs.Cos(angle) * 3.4f, 0.0f);
+            var angle = i * 137.5f;
+            var radius = 0.12f + 0.55f * (i % 7) / 6.0f;
             AddSetAttribute(layer.InitGraph, "position", VariantType.Vector3,
-                AddConstant(layer.InitGraph, position));
+                AddConstant(layer.InitGraph, new Vector3f(
+                    MathDefs.Sin(angle) * radius, 0.02f * (i % 3), MathDefs.Cos(angle) * radius)));
 
-            var getPosition = new GetAttribute();
-            getPosition.SetAttributeName("position");
-            getPosition.SetAttributeType(VariantType.Vector3);
-            var positionIndex = layer.UpdateGraph.Add(getPosition);
-            var sizeIndex = AddConstant(layer.UpdateGraph, new Vector2f(0.8f, 0.8f));
-            var frameIndex = AddConstant(layer.UpdateGraph, 0.0f);
-            var colorIndex = AddConstant(layer.UpdateGraph, (i % 3) switch
-            {
-                0 => new Color(0.05f, 0.8f, 1.0f),
-                1 => new Color(1.0f, 0.1f, 0.65f),
-                _ => new Color(1.0f, 0.75f, 0.05f)
-            });
-            var rotationIndex = AddConstant(layer.UpdateGraph, 0.0f);
-            var directionIndex = AddConstant(layer.UpdateGraph, Vector3f.Up);
+            var position = new GetAttribute();
+            position.SetAttributeName("position");
+            position.SetAttributeType(VariantType.Vector3);
             var render = new RenderBillboard
             {
-                Material = new ResourceRef(typeof(Material).GetTypeId(), "Materials/Particle.xml"),
+                Material = new ResourceRef(typeof(Material).GetTypeId(), "Materials/Fireplace/Ember.xml"),
                 Rows = 1,
                 Columns = 1
             };
-            render.SetPinSource(0, positionIndex);
-            render.SetPinSource(1, sizeIndex);
-            render.SetPinSource(2, frameIndex);
-            render.SetPinSource(3, colorIndex);
-            render.SetPinSource(4, rotationIndex);
-            render.SetPinSource(5, directionIndex);
+            render.SetPinSource(0, layer.UpdateGraph.Add(position));
+            render.SetPinSource(1, AddConstant(layer.UpdateGraph,
+                new Vector2f(0.04f + 0.012f * (i % 4), 0.04f + 0.012f * (i % 4))));
+            render.SetPinSource(2, AddConstant(layer.UpdateGraph, 0.0f));
+            render.SetPinSource(3, AddConstant(layer.UpdateGraph, i % 3 == 0
+                ? new Color(1.0f, 0.88f, 0.32f)
+                : new Color(1.0f, 0.24f, 0.015f)));
+            render.SetPinSource(4, AddConstant(layer.UpdateGraph, 0.0f));
+            render.SetPinSource(5, AddConstant(layer.UpdateGraph, Vector3f.Up));
             layer.UpdateGraph.Add(render);
         }
         return effect;
@@ -253,11 +322,25 @@ sealed class ParticlesApplication : Application
 
     private static void AddSetAttribute(ParticleGraph graph, string name, VariantType type, int sourceNode)
     {
-        var setAttribute = new SetAttribute();
-        setAttribute.SetAttributeName(name);
-        setAttribute.SetAttributeType(type);
-        setAttribute.SetPinSource(1, sourceNode);
-        graph.Add(setAttribute);
+        var attribute = new SetAttribute();
+        attribute.SetAttributeName(name);
+        attribute.SetAttributeType(type);
+        attribute.SetPinSource(1, sourceNode);
+        graph.Add(attribute);
+    }
+
+    private static Node CreateModel(Node parent, string name, in Vector3f position, float scale,
+        Model model, Material[] materials)
+    {
+        var node = parent.CreateChild(name);
+        node.SetPosition(position);
+        node.SetScale(scale);
+        var drawable = node.CreateComponent<StaticModel>();
+        drawable.SetModel(model);
+        for (var i = 0; i < materials.Length; ++i)
+            drawable.SetMaterial(i, materials[i]);
+        drawable.SetCastShadows(true);
+        return node;
     }
 
     private void SetupViewport()
@@ -274,18 +357,35 @@ sealed class ParticlesApplication : Application
             return;
         }
 
-        _burstRing!.Rotate(new Quaternion(0.0f, 22.0f * timeStep, 0.0f), TransformSpace.World);
-        _discoRing!.Rotate(new Quaternion(0.0f, -38.0f * timeStep, 0.0f), TransformSpace.World);
+        _elapsedTime += timeStep;
+        if (_fireLight is not null)
+        {
+            // Layered, low-frequency oscillation feels alive without the harsh strobing of random flicker.
+            var flicker = MathDefs.Sin(_elapsedTime * 5.1f) * 0.20f
+                + MathDefs.Sin(_elapsedTime * 8.7f + 1.4f) * 0.11f
+                + MathDefs.Sin(_elapsedTime * 13.3f + 0.6f) * 0.06f;
+            _fireLight.SetBrightness(3.35f + flicker);
+        }
     }
 
-    private static void DrawInstructions()
+    private void DrawInstructions()
     {
         var windowOpen = true;
-        if (ImGui.Begin("Particle Vortex"u8, ref windowOpen,
+        ImGui.SetNextWindowPos(new Vector2f(10.0f, 10.0f), ImGuiCond.ImGuiCondAlways);
+        if (ImGui.Begin("Night Fireplace"u8, ref windowOpen,
             ImGuiWindowFlags.ImGuiWindowFlagsNoResize | ImGuiWindowFlags.ImGuiWindowFlagsNoSavedSettings))
         {
-            ImGui.TextUnformatted("Fire, smoke, sparks, and color in one scene"u8);
-            ImGui.TextUnformatted("Use WASD keys and the right mouse button to move"u8);
+            for (var i = 0; i < 3; ++i)
+            {
+                ImGui.Image(_controlPrompts![i], PromptIconSize);
+                ImGui.SameLine();
+            }
+            ImGui.Image(_controlPrompts![3], PromptIconSize);
+            ImGui.SameLine();
+            ImGui.TextUnformatted("Move"u8);
+            ImGui.Image(_controlPrompts[4], PromptIconSize);
+            ImGui.SameLine();
+            ImGui.TextUnformatted("Look"u8);
         }
         ImGui.End();
     }
@@ -308,8 +408,7 @@ sealed class ParticlesApplication : Application
             Renderer.SetNumViewports(0);
         _viewport?.Dispose();
         _viewport = null;
-        _discoRing = null;
-        _burstRing = null;
+        _fireLight = null;
         _cameraNode = null;
         _scene?.Dispose();
         _scene = null;
