@@ -8,6 +8,6 @@
     "../RedBolt/src/RedBolt/DearImGui/RedBolt.DearImGui.csproj"
   ],
   "samples": [
-    { "id": "particles", "name": "Particles", "applicationType": "RedBolt.Sample.Particles.ParticlesApplication", "source": "Particles", "mobileHelp": "Drag to look. Use the direction pad to move around the effect.", "mobileMovement": "wasd" }
+    { "id": "particles", "name": "Particles", "applicationType": "RedBolt.Sample.Particles.ParticlesApplication", "source": "Particles" }
   ]
 }
