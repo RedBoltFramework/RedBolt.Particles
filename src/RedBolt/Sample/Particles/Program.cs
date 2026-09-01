@@ -43,6 +43,7 @@ sealed class ParticlesApplication : Application
     private ParticleGraphEffect? _graphEffect;
     private Viewport? _viewport;
     private Texture2D[]? _controlPrompts;
+    private SampleInputMap? _sampleInput;
     private float _elapsedTime;
     private static readonly Vector2f PromptIconSize = new(24.0f, 24.0f);
 
@@ -63,6 +64,7 @@ sealed class ParticlesApplication : Application
 
     protected override void Start()
     {
+        _sampleInput = new SampleInputMap(movement: true);
         Context.RegisterSubsystem(new DearImGui((ImGuiConfigFlags)Engine.Parameters.DearImGuiFlags));
         if (Context.GetSubsystem<ParticleGraphSystem>() is null)
             Context.RegisterSubsystem(new ParticleGraphSystem());
@@ -132,7 +134,7 @@ sealed class ParticlesApplication : Application
         CreateForestSilhouette();
 
         _cameraNode = _scene.CreateChild("Camera");
-        _cameraNode.CreateComponent<FreeFlyController>();
+        _cameraNode.CreateComponent<FreeFlyController>().SetInputMap(_sampleInput!.Map);
         var camera = _cameraNode.CreateComponent<Camera>();
         camera.SetFarClip(60.0f);
         _cameraNode.SetPosition(new Vector3f(3.8f, 2.45f, -4.9f));
@@ -351,7 +353,7 @@ sealed class ParticlesApplication : Application
 
     protected override void Update(float timeStep)
     {
-        if (Input.ExitRequested || Input.GetKeyPress(Key.Escape))
+        if (Input.ExitRequested || _sampleInput!.Pressed("Exit"))
         {
             Exit();
             return;
@@ -392,6 +394,8 @@ sealed class ParticlesApplication : Application
 
     protected override void Stop()
     {
+        _sampleInput?.Dispose();
+        _sampleInput = null;
         DisposeScene();
         base.Stop();
     }
