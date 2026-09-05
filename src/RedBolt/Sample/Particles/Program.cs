@@ -377,15 +377,10 @@ sealed class ParticlesApplication : Application
         if (ImGui.Begin("Night Fireplace"u8, ref windowOpen,
             ImGuiWindowFlags.ImGuiWindowFlagsNoResize | ImGuiWindowFlags.ImGuiWindowFlagsNoSavedSettings))
         {
-            for (var i = 0; i < 3; ++i)
-            {
-                ImGui.Image(_controlPrompts![i], PromptIconSize);
-                ImGui.SameLine();
-            }
-            ImGui.Image(_controlPrompts![3], PromptIconSize);
+            ImGui.Image(SampleInputMap.GetMovementPrompt(), PromptIconSize);
             ImGui.SameLine();
             ImGui.TextUnformatted("Move"u8);
-            ImGui.Image(_controlPrompts[4], PromptIconSize);
+            ImGui.Image(SampleInputMap.GetLookPrompt(), PromptIconSize);
             ImGui.SameLine();
             ImGui.TextUnformatted("Look"u8);
         }
