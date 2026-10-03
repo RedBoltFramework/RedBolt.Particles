@@ -7,6 +7,9 @@
     "src/RedBolt/Particles/RedBolt.Particles.csproj",
     "../RedBolt/src/RedBolt/DearImGui/RedBolt.DearImGui.csproj"
   ],
+  "webPInvokeModules": [
+    "RedBolt.Native.DearImGui"
+  ],
   "samples": [
     { "id": "particles", "name": "Particles", "applicationType": "RedBolt.Sample.Particles.ParticlesApplication", "source": "Particles" }
   ]
